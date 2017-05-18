@@ -49,7 +49,8 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 // *****************************************************************************
 
 #include "app.h"
-
+#include "i2c_master_noint.h"
+#include "ILI9163C.h"
 
 // *****************************************************************************
 // *****************************************************************************
@@ -75,7 +76,7 @@ APP_DATA appData;
 MOUSE_REPORT mouseReport APP_MAKE_BUFFER_DMA_READY;
 MOUSE_REPORT mouseReportPrevious APP_MAKE_BUFFER_DMA_READY;
 
-
+short imuData[7];
 // *****************************************************************************
 // *****************************************************************************
 // Section: Application Callback Functions
@@ -255,6 +256,7 @@ void APP_Initialize(void) {
     //appData.emulateMouse = true;
     appData.hidInstance = 0;
     appData.isMouseReportSendBusy = false;
+    i2c_master_setup();
 }
 
 /******************************************************************************
@@ -265,9 +267,12 @@ void APP_Initialize(void) {
  */
 
 void APP_Tasks(void) {
-    static int8_t vector = 0;
-    static uint8_t movement_length = 0;
-    int8_t dir_table[] = {-4, -4, -4, 0, 4, 4, 4, 0};
+//    static int8_t vector = 0;
+//    static uint8_t movement_length = 0;
+//    int8_t dir_table[] = {-4, -4, -4, 0, 4, 4, 4, 0};
+    static uint8_t inc=0;
+    static uint8_t pressd=0;
+    int xcoor, ycoor;
 
     /* Check the application's current state. */
     switch (appData.state) {
@@ -305,15 +310,32 @@ void APP_Tasks(void) {
         case APP_STATE_MOUSE_EMULATE:
             
             // every 50th loop, or 20 times per second
-            if (movement_length > 50) {
+            if(inc>250){
+                IMU_multiRead(IMU_ADDR, 0x20, imuData, 7);
                 appData.mouseButton[0] = MOUSE_BUTTON_STATE_RELEASED;
                 appData.mouseButton[1] = MOUSE_BUTTON_STATE_RELEASED;
-                appData.xCoordinate = (int8_t) dir_table[vector & 0x07];
-                appData.yCoordinate = (int8_t) dir_table[(vector + 2) & 0x07];
-                vector++;
-                movement_length = 0;
+                xcoor=imuData[4]/5461;
+                ycoor=imuData[5]/5461;
+                appData.xCoordinate = (int8_t) xcoor;//dir_table[vector & 0x07];
+                appData.yCoordinate = (int8_t) ycoor;//dir_table[(vector + 2) & 0x07];
+                inc=0;
+            }else{
+                appData.mouseButton[0] = MOUSE_BUTTON_STATE_RELEASED;
+                appData.mouseButton[1] = MOUSE_BUTTON_STATE_RELEASED;
+                appData.xCoordinate = (int8_t) 0;//dir_table[vector & 0x07];
+                appData.yCoordinate = (int8_t) 0;//dir_table[(vector + 2) & 0x07];
+                
             }
-
+            inc++;    
+            while(!PORTBbits.RB4){
+                while(pressd==0){
+                    if(!PORTBbits.RB4){
+                        pressd=1;
+                    }
+                }
+                pressd=0;
+            }
+            
             if (!appData.isMouseReportSendBusy) {
                 /* This means we can send the mouse report. The
                    isMouseReportBusy flag is updated in the HID Event Handler. */
@@ -364,7 +386,7 @@ void APP_Tasks(void) {
                             sizeof (MOUSE_REPORT));
                     appData.setIdleTimer = 0;
                 }
-                movement_length++;
+             //  movement_length++;
             }
 
             break;

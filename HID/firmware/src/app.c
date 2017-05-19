@@ -314,8 +314,8 @@ void APP_Tasks(void) {
                 IMU_multiRead(IMU_ADDR, 0x20, imuData, 7);
                 appData.mouseButton[0] = MOUSE_BUTTON_STATE_RELEASED;
                 appData.mouseButton[1] = MOUSE_BUTTON_STATE_RELEASED;
-                xcoor=imuData[4]/5461;
-                ycoor=imuData[5]/5461;
+                xcoor=3*imuData[4]/5461;
+                ycoor=3*imuData[5]/5461;
                 appData.xCoordinate = (int8_t) xcoor;//dir_table[vector & 0x07];
                 appData.yCoordinate = (int8_t) ycoor;//dir_table[(vector + 2) & 0x07];
                 inc=0;
